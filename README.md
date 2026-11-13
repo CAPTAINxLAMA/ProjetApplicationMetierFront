@@ -21,7 +21,7 @@
     - Liker des contenus.
 - User ne peut pas : 
     - Créer et publier du contenu.
-    - Bannir des User et des Content Creator.
+    - Bannir des User et des Content Creator. 
 - Content Creator peut :
     - Créer et publier du contenu.
     - Avoir accès à la page de stat de leurs jeux

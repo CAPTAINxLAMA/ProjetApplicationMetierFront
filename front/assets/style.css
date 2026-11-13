@@ -1,0 +1,30 @@
+body { background: #f4f6fb; }
+
+.navbar { background: linear-gradient(90deg, #1b2838, #2a475e); }
+.navbar-brand { font-weight: 700; letter-spacing: .5px; }
+
+.hero {
+  background: linear-gradient(135deg, #1b2838 0%, #2a475e 60%, #66c0f4 130%);
+  color: #fff;
+  border-radius: 1rem;
+}
+
+.card { border: 0; border-radius: 1rem; box-shadow: 0 2px 12px rgba(0, 0, 0, .06); }
+.card-hover { transition: transform .15s ease, box-shadow .15s ease; }
+.card-hover:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0, 0, 0, .12); }
+
+.stat-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem;
+}
+
+.avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: #2a475e; color: #fff; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.table > :not(caption) > * > * { padding-top: .85rem; padding-bottom: .85rem; }
+footer { color: #8a94a6; }
