@@ -9,6 +9,29 @@ GO
 USE [Steam_2];
 GO
 
+
+-- 1. Création du login (niveau serveur)
+IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'api_user')
+BEGIN
+    CREATE LOGIN api_user WITH PASSWORD = 'UnMotDePasseSolide1!';
+END;
+GO
+
+-- 2. Création de l'utilisateur dans la base + droits de lecture
+USE [Steam_2];
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'api_user')
+BEGIN
+    CREATE USER api_user FOR LOGIN api_user;
+END;
+
+IF IS_ROLEMEMBER('db_datareader', 'api_user') = 0
+BEGIN
+    ALTER ROLE db_datareader ADD MEMBER api_user;
+END;
+GO
+
 IF OBJECT_ID('dbo.Role', 'U') IS NULL
 BEGIN
     CREATE TABLE Role (
