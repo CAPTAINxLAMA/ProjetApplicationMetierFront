@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const sql = require('mssql');
+const swaggerUi = require('swagger-ui-express');
 
 const app = express();
 
@@ -49,5 +50,34 @@ route('/consommateur', 'SELECT * FROM Consommateur');
 route('/likeur',       'SELECT * FROM Likeur');
 
 // Pour ajouter une route : route('/mon-url', 'MA REQUETE SQL');
+
+// ---------- Swagger : /swagger ----------
+// La doc est générée automatiquement à partir de toutes les routes GET déclarées ci-dessus
+const paths = {};
+app._router.stack
+  .filter((layer) => layer.route && layer.route.methods.get)
+  .forEach((layer) => {
+    paths[layer.route.path] = {
+      get: {
+        summary: 'SELECT * FROM ' + layer.route.path.slice(1),
+        responses: {
+          200: {
+            description: 'Liste des lignes (JSON)',
+            content: { 'application/json': { schema: { type: 'array', items: { type: 'object' } } } },
+          },
+          500: { description: 'Erreur serveur ou SQL' },
+        },
+      },
+    };
+  });
+
+const swaggerSpec = {
+  openapi: '3.0.3',
+  info: { title: 'API Steam_2', version: '1.0.0' },
+  servers: [{ url: 'http://localhost:3000' }],
+  paths,
+};
+
+app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.listen(3000, () => console.log('API sur http://localhost:3000'));
