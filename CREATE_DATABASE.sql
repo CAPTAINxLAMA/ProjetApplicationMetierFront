@@ -32,6 +32,12 @@ BEGIN
 END;
 GO
 
+USE Steam_2;
+GO
+
+ALTER ROLE db_owner ADD MEMBER [api_user];
+GO
+
 IF OBJECT_ID('dbo.Role', 'U') IS NULL
 BEGIN
     CREATE TABLE Role (
