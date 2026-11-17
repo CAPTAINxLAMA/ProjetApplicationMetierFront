@@ -40,6 +40,54 @@ function route(chemin, requeteSQL) {
   });
 }
 
+app.get('/users/:id/achats', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const type = req.query.type;
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: 'id doit être un entier' });
+  }
+
+  try {
+    const pool = await poolPromise;
+
+    // Vérifier que l'utilisateur existe
+    const userRes = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT id FROM Users WHERE id = @id');
+    if (userRes.recordset.length === 0) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' });
+    }
+
+    // Récupérer les achats (filtre optionnel sur le type)
+    const request = pool.request().input('id', sql.Int, id);
+    let requeteSQL = `
+      SELECT
+        c.id,
+        c.Nom,
+        c.Description,
+        c.Prix,
+        c.Taille,
+        t.Nom AS Type,
+        c.id_Createur
+      FROM Consommateur co
+      JOIN Contenu c ON c.id = co.id_contenu
+      JOIN [Type] t ON t.id = c.id_type
+      WHERE co.id_user = @id
+    `;
+    if (type) {
+      request.input('type', sql.VarChar(50), type);
+      requeteSQL += ' AND t.Nom = @type';
+    }
+
+    const result = await request.query(requeteSQL);
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Erreur récupération achats :', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---------- Une route par table ----------
 route('/role',         'SELECT * FROM Role');
 route('/sexe',         'SELECT * FROM Sexe');
@@ -79,6 +127,95 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// ---------- POST /acheter ----------
+// Corps attendu : { "id_user": 1, "id_contenu": 3 }
+app.post('/acheter', async (req, res) => {
+  const { id_user, id_contenu } = req.body || {};
+
+  if (!Number.isInteger(id_user) || !Number.isInteger(id_contenu)) {
+    return res.status(400).json({ error: 'id_user et id_contenu sont requis (entiers)' });
+  }
+
+  const pool = await poolPromise;
+  const transaction = new sql.Transaction(pool);
+
+  try {
+    await transaction.begin();
+
+    // 1. L'utilisateur (ligne verrouillée pour éviter deux achats simultanés)
+    const userRes = await new sql.Request(transaction)
+      .input('id_user', sql.Int, id_user)
+      .query('SELECT id, Porte_feuille FROM Users WITH (UPDLOCK, ROWLOCK) WHERE id = @id_user');
+    const user = userRes.recordset[0];
+    if (!user) {
+      await transaction.rollback();
+      return res.status(404).json({ error: 'Utilisateur introuvable' });
+    }
+
+    // 2. Le contenu
+    const contenuRes = await new sql.Request(transaction)
+      .input('id_contenu', sql.Int, id_contenu)
+      .query('SELECT id, Nom, Prix, id_Createur FROM Contenu WHERE id = @id_contenu');
+    const contenu = contenuRes.recordset[0];
+    if (!contenu) {
+      await transaction.rollback();
+      return res.status(404).json({ error: 'Contenu introuvable' });
+    }
+
+    // 3. Pas d'achat de son propre contenu
+    if (contenu.id_Createur === id_user) {
+      await transaction.rollback();
+      return res.status(403).json({ error: 'Vous ne pouvez pas acheter votre propre contenu' });
+    }
+
+    // 4. Déjà acheté ?
+    const dejaRes = await new sql.Request(transaction)
+      .input('id_user', sql.Int, id_user)
+      .input('id_contenu', sql.Int, id_contenu)
+      .query('SELECT 1 AS existe FROM Consommateur WHERE id_user = @id_user AND id_contenu = @id_contenu');
+    if (dejaRes.recordset.length > 0) {
+      await transaction.rollback();
+      return res.status(409).json({ error: 'Contenu déjà acheté' });
+    }
+
+    // 5. Solde suffisant ? (en centimes pour éviter les erreurs de flottants)
+    const soldeCents = Math.round(user.Porte_feuille * 100);
+    const prixCents = Math.round(contenu.Prix * 100);
+    if (soldeCents < prixCents) {
+      await transaction.rollback();
+      return res.status(402).json({
+        error: 'Solde insuffisant',
+        solde: user.Porte_feuille,
+        prix: contenu.Prix,
+        manquant: (prixCents - soldeCents) / 100,
+      });
+    }
+
+    // 6. Débit du portefeuille
+    await new sql.Request(transaction)
+      .input('id_user', sql.Int, id_user)
+      .input('prix', sql.Decimal(10, 2), contenu.Prix)
+      .query('UPDATE Users SET Porte_feuille = Porte_feuille - @prix WHERE id = @id_user');
+
+    // 7. Ajout de la liaison dans Consommateur
+    await new sql.Request(transaction)
+      .input('id_user', sql.Int, id_user)
+      .input('id_contenu', sql.Int, id_contenu)
+      .query('INSERT INTO Consommateur (id_user, id_contenu) VALUES (@id_user, @id_contenu)');
+
+    await transaction.commit();
+
+    res.status(201).json({
+      message: 'Achat réussi',
+      contenu: { id: contenu.id, Nom: contenu.Nom, Prix: contenu.Prix },
+      nouveau_solde: (soldeCents - prixCents) / 100,
+    });
+  } catch (err) {
+    try { await transaction.rollback(); } catch (_) { /* déjà fermée */ }
+    console.error('Erreur achat :', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ---------- POST /create_user ----------
 // Corps attendu :
@@ -219,6 +356,24 @@ app._router.stack
     };
   });
 
+delete paths['/users/:id/achats']; // supprime l'entrée auto-générée
+
+paths['/users/{id}/achats'] = {
+  get: {
+    summary: "Liste du contenu acheté par un utilisateur (filtre optionnel ?type=Jeu)",
+    parameters: [
+      { name: 'id', in: 'path', required: true, schema: { type: 'integer', example: 4 } },
+      { name: 'type', in: 'query', required: false, schema: { type: 'string', example: 'Jeu' } },
+    ],
+    responses: {
+      200: { description: 'Liste du contenu acheté (JSON)' },
+      400: { description: 'id invalide' },
+      404: { description: 'Utilisateur introuvable' },
+      500: { description: 'Erreur serveur ou SQL' },
+    },
+  },
+};
+
 // POST /login (le code ci-dessus ne repère que les GET, on l'ajoute à la main)
 paths['/login'] = {
   post: {
@@ -287,7 +442,35 @@ paths['/create_user'] = {
   }
 };
 
-
+paths['/acheter'] = {
+  post: {
+    summary: 'Acheter un contenu (vérifie le solde, débite, enregistre dans Consommateur)',
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['id_user', 'id_contenu'],
+            properties: {
+              id_user: { type: 'integer', example: 1 },
+              id_contenu: { type: 'integer', example: 3 },
+            },
+          },
+        },
+      },
+    },
+    responses: {
+      201: { description: 'Achat réussi (renvoie le nouveau solde)' },
+      400: { description: 'id_user ou id_contenu manquant ou invalide' },
+      402: { description: 'Solde insuffisant' },
+      403: { description: 'Achat de son propre contenu interdit' },
+      404: { description: 'Utilisateur ou contenu introuvable' },
+      409: { description: 'Contenu déjà acheté' },
+      500: { description: 'Erreur serveur ou SQL' },
+    },
+  },
+};
 
 const swaggerSpec = {
   openapi: '3.0.3',
@@ -295,6 +478,8 @@ const swaggerSpec = {
   servers: [{ url: 'http://localhost:3000' }],
   paths,
 };
+
+
 
 
 
