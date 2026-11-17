@@ -113,7 +113,7 @@ app.post('/login', async (req, res) => {
     const result = await pool
       .request()
       .input('email', sql.VarChar(100), email)
-      .query('SELECT id, id_role, Pseudonyme, Nom, Prenom, Email, Password_hash FROM Users WHERE Email = @email');
+      .query('SELECT id, id_role, Pseudonyme, Nom, Prenom, Email, Porte_feuille, Password_hash FROM Users WHERE Email = @email');
 
     const user = result.recordset[0];
     // Même message si l'email n'existe pas ou si le mot de passe est faux

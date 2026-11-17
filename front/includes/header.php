@@ -39,6 +39,13 @@ $user  = $_SESSION['user'] ?? null;
         </li>
         <?php if ($user): ?>
           <li class="nav-item">
+            <span class="nav-link ms-lg-1">
+              <span class="badge rounded-pill text-bg-success">
+                <i class="bi bi-wallet2 me-1"></i><?= number_format((float) ($user['Porte_feuille'] ?? 0), 2, ',', "\u{00A0}") ?>&nbsp;€
+              </span>
+            </span>
+          </li>
+          <li class="nav-item">
             <span class="nav-link text-white ms-lg-1">
               <i class="bi bi-person-circle me-1"></i><?= e($user['Pseudonyme']) ?>
             </span>
