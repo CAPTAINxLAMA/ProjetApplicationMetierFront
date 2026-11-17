@@ -5,6 +5,9 @@ if (session_status() === PHP_SESSION_NONE) {
 $titre = $titre ?? 'Steam_2';
 $page  = basename($_SERVER['SCRIPT_NAME']);
 $user  = $_SESSION['user'] ?? null;
+
+// Seul le rôle 2 peut accéder à l'onglet Utilisateurs
+$peutVoirUsers = $user && (int)($user['id_role'] ?? 0) === 2;
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -29,14 +32,22 @@ $user  = $_SESSION['user'] ?? null;
           <a class="nav-link <?= $page === 'index.php' ? 'active' : '' ?>" href="index.php">
             <i class="bi bi-house me-1"></i>Accueil</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link <?= $page === 'users.php' ? 'active' : '' ?>" href="users.php">
-            <i class="bi bi-people me-1"></i>Utilisateurs</a>
+        <?php if ($peutVoirUsers): ?>
+       <li class="nav-item">
+         <a class="nav-link <?= $page === 'users.php' ? 'active' : '' ?>" href="users.php">
+         <i class="bi bi-people me-1"></i>Utilisateurs</a>
         </li>
+       <?php endif; ?>
         <li class="nav-item">
           <a class="nav-link <?= $page === 'contenu.php' ? 'active' : '' ?>" href="contenu.php">
             <i class="bi bi-collection-play me-1"></i>Contenus</a>
         </li>
+        <?php if ($user): ?>
+          <li class="nav-item">
+            <a class="nav-link <?= $page === 'bibliotheque.php' ? 'active' : '' ?>" href="bibliotheque.php">
+              <i class="bi bi-journal-bookmark me-1"></i>Bibliothèque</a>
+          </li>
+        <?php endif; ?>
         <?php if ($user): ?>
           <li class="nav-item">
             <span class="nav-link text-white ms-lg-1">
