@@ -21,20 +21,20 @@
     - Liker des contenus.
 - Consommateur ne peut pas : 
     - Créer et publier du contenu.
-    - Bannir des User et des Content Creator. 
+    - Supprimer des Consommateurs et des Content Creator. 
 - Content Creator peut :
     - Créer et publier du contenu.
     - Avoir accès à la page de stat de leurs jeux
     - Avoir les mêmes droits que les Consommateurs.
 - Content Creator ne peut pas :
-    - Bannir des User et des Content Creator.
+    - Supprimer des Consommateurs et des Content Creator.
 - Moderator peut :
-    - Bannir des User et des Content Creator.
+    - Supprimer des Consommateurs et des Content Creator.
     - Avoir accès à la page de stat global
     - Avoir les mêmes droits que les Consommateurs.
     - Avoir les mêmes droits que les Content Creator.
 - Moderator ne peut pas :
-    - Bannir d'autres Moderator.
+    - Supprimer d'autres Moderator.
 ## Matrice de droit :
 
 |          | publier du contenu | Liker du contenu | Acheter du contenu | Bannir des Consommateurs et des content creator | Accès à la page de stat d'un jeux | Accès à la page de stat global | 
