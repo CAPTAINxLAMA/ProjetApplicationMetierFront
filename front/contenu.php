@@ -14,7 +14,7 @@ $contenus = [];
 try {
     $contenus = api_get('/contenu');
     $types    = array_column(api_get('/type'), 'Nom', 'id');
-    $createurs = array_column(api_get('/users'), 'Pseudonyme', 'id');
+    $createurs = array_column(api_get('/createurs'), 'Pseudonyme', 'id');
     $likes    = array_count_values(array_column(api_get('/likeur'), 'id_contenu'));
     $achats   = array_count_values(array_column(api_get('/consommateur'), 'id_contenu'));
 } catch (RuntimeException $ex) {

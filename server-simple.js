@@ -3,9 +3,34 @@ const express = require('express');
 const sql = require('mssql');
 const swaggerUi = require('swagger-ui-express');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 app.use(express.json()); // lit le JSON envoyé dans le corps des requêtes POST
+
+// Vérifie le token et remplit req.user = { id, id_role }
+function verifierToken(req, res, next) {
+  const entete = req.headers.authorization || '';
+  const token = entete.startsWith('Bearer ') ? entete.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'Authentification requise' });
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Token invalide ou expiré' });
+  }
+}
+
+// Vérifie que le rôle fait partie de la liste autorisée
+function exigerRole(...roles) {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.id_role)) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
+    next();
+  };
+}
 
 const config = {
   server: process.env.DB_SERVER || 'localhost',
@@ -28,8 +53,8 @@ const poolPromise = new sql.ConnectionPool(config)
   });
 
 // Crée une route GET : chemin dans l'URL  ->  requête SQL à exécuter
-function route(chemin, requeteSQL) {
-  app.get(chemin, async (req, res) => {
+function route(chemin, requeteSQL, ...middlewares) {
+  app.get(chemin, ...middlewares, async (req, res) => {
     try {
       const pool = await poolPromise;
       const result = await pool.request().query(requeteSQL);
@@ -39,19 +64,21 @@ function route(chemin, requeteSQL) {
     }
   });
 }
-
-app.get('/users/:id/achats', async (req, res) => {
+// ---------- GET /users/:id/achats ----------
+app.get('/users/:id/achats', verifierToken, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const type = req.query.type;
 
   if (!Number.isInteger(id)) {
     return res.status(400).json({ error: 'id doit être un entier' });
   }
+  if (id !== req.user.id && req.user.id_role !== 2) {
+    return res.status(403).json({ error: 'Accès refusé' });
+  }
 
   try {
     const pool = await poolPromise;
 
-    // Vérifier que l'utilisateur existe
     const userRes = await pool.request()
       .input('id', sql.Int, id)
       .query('SELECT id FROM Users WHERE id = @id');
@@ -59,17 +86,9 @@ app.get('/users/:id/achats', async (req, res) => {
       return res.status(404).json({ error: 'Utilisateur introuvable' });
     }
 
-    // Récupérer les achats (filtre optionnel sur le type)
     const request = pool.request().input('id', sql.Int, id);
     let requeteSQL = `
-      SELECT
-        c.id,
-        c.Nom,
-        c.Description,
-        c.Prix,
-        c.Taille,
-        t.Nom AS Type,
-        c.id_Createur
+      SELECT c.id, c.Nom, c.Description, c.Prix, c.Taille, t.Nom AS Type, c.id_Createur
       FROM Consommateur co
       JOIN Contenu c ON c.id = co.id_contenu
       JOIN [Type] t ON t.id = c.id_type
@@ -93,11 +112,13 @@ route('/role',         'SELECT * FROM Role');
 route('/sexe',         'SELECT * FROM Sexe');
 route('/status',       'SELECT * FROM Status');
 route('/type',         'SELECT * FROM [Type]');
-route('/users',        'SELECT id, id_role, id_sexe, Pseudonyme, Nom, Prenom, Age, DateCreation, Porte_feuille, Email FROM Users'); // sans Password_hash
-route('/contenu',      'SELECT * FROM Contenu');
-route('/user_status',  'SELECT * FROM User_status');
-route('/consommateur', 'SELECT * FROM Consommateur');
-route('/likeur',       'SELECT * FROM Likeur');
+route('/users', 'SELECT id, id_role, id_sexe, Pseudonyme, Nom, Prenom, Age, DateCreation, Porte_feuille, Email FROM Users',
+      verifierToken, exigerRole(2));
+route('/createurs', 'SELECT id, Pseudonyme FROM Users', verifierToken);
+route('/contenu',      'SELECT * FROM Contenu', verifierToken);
+route('/likeur',       'SELECT * FROM Likeur',       verifierToken);
+route('/consommateur', 'SELECT * FROM Consommateur', verifierToken);
+route('/user_status',  'SELECT * FROM User_status',  verifierToken);
 
 // Pour ajouter une route : route('/mon-url', 'MA REQUETE SQL');
 
@@ -129,11 +150,12 @@ app.post('/login', async (req, res) => {
 
 // ---------- POST /acheter ----------
 // Corps attendu : { "id_user": 1, "id_contenu": 3 }
-app.post('/acheter', async (req, res) => {
-  const { id_user, id_contenu } = req.body || {};
+app.post('/acheter', verifierToken, async (req, res) => {
+  const id_user = req.user.id;
+  const { id_contenu } = req.body || {};
 
-  if (!Number.isInteger(id_user) || !Number.isInteger(id_contenu)) {
-    return res.status(400).json({ error: 'id_user et id_contenu sont requis (entiers)' });
+  if (!Number.isInteger(id_contenu)) {
+    return res.status(400).json({ error: 'id_contenu est requis (entier)' });
   }
 
   const pool = await poolPromise;
@@ -451,9 +473,8 @@ paths['/acheter'] = {
         'application/json': {
           schema: {
             type: 'object',
-            required: ['id_user', 'id_contenu'],
+            required: ['id_contenu'],
             properties: {
-              id_user: { type: 'integer', example: 1 },
               id_contenu: { type: 'integer', example: 3 },
             },
           },

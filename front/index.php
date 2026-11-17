@@ -23,13 +23,9 @@ require __DIR__ . '/includes/header.php';
 <section class="hero p-5 mb-4">
   <h1 class="display-5 fw-bold">Bienvenue sur Steam_2</h1>
   <p class="lead mb-4">Explore les utilisateurs et le catalogue de contenus de la plateforme.</p>
-  <a href="users.php" class="btn btn-light me-2"><i class="bi bi-people me-1"></i>Utilisateurs</a>
-  <a href="contenu.php" class="btn btn-primary"><i class="bi bi-collection-play me-1"></i>Contenus</a>
+    <p class="lead mb-4">Emilien Dezamy, Elouan Foucher, Nathan Bodin</p>
 </section>
 
-<?php if ($erreur): ?>
-  <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i><?= e($erreur) ?></div>
-<?php else: ?>
   <div class="row g-3">
     <?php foreach ($stats as [$label, $nb, $icone, $couleur]): ?>
       <div class="col-6 col-lg-3">
@@ -47,6 +43,6 @@ require __DIR__ . '/includes/header.php';
       </div>
     <?php endforeach; ?>
   </div>
-<?php endif; ?>
+
 
 <?php require __DIR__ . '/includes/footer.php'; ?>
