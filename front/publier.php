@@ -45,7 +45,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $types) {
         $erreur = 'La taille doit être un nombre supérieur à 0.';
     } else {
         $donnees = [
-            'id_Createur' => (int) $_SESSION['user']['id'],  // toujours pris dans la session, jamais dans le formulaire
             'id_type'     => (int) $form['id_type'],
             'Nom'         => $form['Nom'],
             'Prix'        => (float) $prix,

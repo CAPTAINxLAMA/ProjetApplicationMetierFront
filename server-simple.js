@@ -360,12 +360,14 @@ app.post('/create_user', async (req, res) => {
 
 // ---------- POST /publier_contenu ----------
 
-app.post('/publier_contenu', async (req, res) => {
-  const { id_Createur, id_type, Nom, Description, Prix, Taille } = req.body || {};
+app.post('/publier_contenu',verifierToken, exigerRole(1,2), async (req, res) => {
+   const id_Createur = req.user.id;   // vient du token, plus du body
+   const { id_type, Nom, Description, Prix, Taille } = req.body || {};
+
 
   // --- Validation des champs ---
-  if (!Number.isInteger(id_Createur) || !Number.isInteger(id_type)) {
-    return res.status(400).json({ error: 'id_Createur et id_type sont requis (entiers)' });
+  if (!Number.isInteger(id_type)) {
+    return res.status(400).json({ error: 'id_type est requis (entier)' });
   }
   const nom = typeof Nom === 'string' ? Nom.trim() : '';
   if (!nom || nom.length > 50) {
@@ -577,9 +579,8 @@ paths['/publier_contenu'] = {
         'application/json': {
           schema: {
             type: 'object',
-            required: ['id_Createur', 'id_type', 'Nom', 'Prix', 'Taille'],
+            required: ['id_type', 'Nom', 'Prix', 'Taille'],
             properties: {
-              id_Createur: { type: 'integer', example: 1 },
               id_type: { type: 'integer', example: 1 },
               Nom: { type: 'string', maxLength: 50, example: 'Mon super jeu' },
               Description: { type: 'string', maxLength: 255, example: 'Un jeu de plateforme' },
