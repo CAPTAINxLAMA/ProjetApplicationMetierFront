@@ -1,6 +1,10 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 $titre = $titre ?? 'Steam_2';
 $page  = basename($_SERVER['SCRIPT_NAME']);
+$user  = $_SESSION['user'] ?? null;
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -33,6 +37,22 @@ $page  = basename($_SERVER['SCRIPT_NAME']);
           <a class="nav-link <?= $page === 'contenu.php' ? 'active' : '' ?>" href="contenu.php">
             <i class="bi bi-collection-play me-1"></i>Contenus</a>
         </li>
+        <?php if ($user): ?>
+          <li class="nav-item">
+            <span class="nav-link text-white ms-lg-1">
+              <i class="bi bi-person-circle me-1"></i><?= e($user['Pseudonyme']) ?>
+            </span>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="logout.php">
+              <i class="bi bi-box-arrow-right me-1"></i>Déconnexion</a>
+          </li>
+        <?php else: ?>
+          <li class="nav-item">
+            <a class="nav-link <?= $page === 'login.php' ? 'active' : '' ?>" href="login.php">
+              <i class="bi bi-box-arrow-in-right me-1"></i>Connexion</a>
+          </li>
+        <?php endif; ?>
       </ul>
     </div>
   </div>

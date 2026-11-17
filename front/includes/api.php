@@ -24,6 +24,32 @@ function api_get(string $path): array
     return $data ?? [];
 }
 
+// Envoie un POST en JSON vers l'API (même gestion d'erreurs que api_get)
+function api_post(string $path, array $donnees): array
+{
+    $ch = curl_init(API_URL . $path);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 5,
+        CURLOPT_HTTPHEADER     => ['Accept: application/json', 'Content-Type: application/json'],
+        CURLOPT_POSTFIELDS     => json_encode($donnees),
+    ]);
+    $body = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err  = curl_error($ch);
+    curl_close($ch);
+
+    if ($body === false) {
+        throw new RuntimeException("API injoignable : $err");
+    }
+    $data = json_decode($body, true);
+    if ($code >= 400) {
+        throw new RuntimeException($data['error'] ?? "Erreur HTTP $code");
+    }
+    return $data ?? [];
+}
+
 function e($valeur): string
 {
     return htmlspecialchars((string) $valeur, ENT_QUOTES, 'UTF-8');
