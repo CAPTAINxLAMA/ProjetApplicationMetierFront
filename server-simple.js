@@ -336,6 +336,81 @@ app.post('/create_user', async (req, res) => {
 });
 
 
+// ---------- POST /publier_contenu ----------
+
+app.post('/publier_contenu', async (req, res) => {
+  const { id_Createur, id_type, Nom, Description, Prix, Taille } = req.body || {};
+
+  // --- Validation des champs ---
+  if (!Number.isInteger(id_Createur) || !Number.isInteger(id_type)) {
+    return res.status(400).json({ error: 'id_Createur et id_type sont requis (entiers)' });
+  }
+  const nom = typeof Nom === 'string' ? Nom.trim() : '';
+  if (!nom || nom.length > 50) {
+    return res.status(400).json({ error: 'Nom requis (50 caractères maximum)' });
+  }
+  if (Description != null && (typeof Description !== 'string' || Description.length > 255)) {
+    return res.status(400).json({ error: 'Description invalide (texte de 255 caractères maximum)' });
+  }
+  if (typeof Prix !== 'number' || !Number.isFinite(Prix) || Prix < 0 || Prix > 99999999.99) {
+    return res.status(400).json({ error: 'Prix requis (nombre positif ou nul)' });
+  }
+  if (typeof Taille !== 'number' || !Number.isFinite(Taille) || Taille <= 0 || Taille > 9999999999999.99) {
+    return res.status(400).json({ error: 'Taille requise (nombre supérieur à 0)' });
+  }
+
+  try {
+    const pool = await poolPromise;
+
+    // Le créateur existe-t-il ?
+    const createurRes = await pool.request()
+      .input('id', sql.Int, id_Createur)
+      .query('SELECT id FROM Users WHERE id = @id');
+    if (createurRes.recordset.length === 0) {
+      return res.status(404).json({ error: 'Créateur introuvable' });
+    }
+
+    // Le type existe-t-il ?
+    const typeRes = await pool.request()
+      .input('id', sql.Int, id_type)
+      .query('SELECT id FROM [Type] WHERE id = @id');
+    if (typeRes.recordset.length === 0) {
+      return res.status(404).json({ error: 'Type introuvable' });
+    }
+
+    // Insertion du contenu
+    const result = await pool.request()
+      .input('id_type', sql.Int, id_type)
+      .input('Nom', sql.VarChar(50), nom)
+      .input('Description', sql.VarChar(255), Description || null)
+      .input('Prix', sql.Decimal(10, 2), Prix)
+      .input('Taille', sql.Decimal(15, 2), Taille)
+      .input('id_Createur', sql.Int, id_Createur)
+      .query(`
+        INSERT INTO Contenu (id_type, Nom, Description, Prix, Taille, id_Createur)
+        OUTPUT
+          INSERTED.id,
+          INSERTED.id_type,
+          INSERTED.Nom,
+          INSERTED.Description,
+          INSERTED.Prix,
+          INSERTED.Taille,
+          INSERTED.id_Createur
+        VALUES (@id_type, @Nom, @Description, @Prix, @Taille, @id_Createur)
+      `);
+
+    res.status(201).json({
+      message: 'Contenu publié avec succès',
+      contenu: result.recordset[0],
+    });
+  } catch (err) {
+    console.error('Erreur publication contenu :', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
 // ---------- Swagger : /swagger ----------
 // La doc est générée automatiquement à partir de toutes les routes GET déclarées ci-dessus
 const paths = {};
@@ -471,6 +546,40 @@ paths['/acheter'] = {
     },
   },
 };
+
+paths['/publier_contenu'] = {
+  post: {
+    summary: 'Publier un nouveau contenu (jeu, application...) dans le catalogue',
+    requestBody: {
+      required: true,
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            required: ['id_Createur', 'id_type', 'Nom', 'Prix', 'Taille'],
+            properties: {
+              id_Createur: { type: 'integer', example: 1 },
+              id_type: { type: 'integer', example: 1 },
+              Nom: { type: 'string', maxLength: 50, example: 'Mon super jeu' },
+              Description: { type: 'string', maxLength: 255, example: 'Un jeu de plateforme' },
+              Prix: { type: 'number', example: 9.99 },
+              Taille: { type: 'number', example: 450.5 },
+            },
+          },
+        },
+      },
+    },
+    responses: {
+      201: { description: 'Contenu publié (renvoie le contenu créé avec son id)' },
+      400: { description: 'Champ manquant ou invalide' },
+      404: { description: 'Créateur ou type introuvable' },
+      500: { description: 'Erreur serveur ou SQL' },
+    },
+  },
+};
+ 
+
+
 
 const swaggerSpec = {
   openapi: '3.0.3',
