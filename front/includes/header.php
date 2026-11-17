@@ -8,6 +8,8 @@ $user  = $_SESSION['user'] ?? null;
 
 // Seul le rôle 2 peut accéder à l'onglet Utilisateurs
 $peutVoirUsers = $user && (int)($user['id_role'] ?? 0) === 2;
+$peutPublier = $user && ((int)($user['id_role'] ?? 0) === 1 || (int)($user['id_role'] ?? 0) ===  2);
+
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -42,6 +44,12 @@ $peutVoirUsers = $user && (int)($user['id_role'] ?? 0) === 2;
           <a class="nav-link <?= $page === 'contenu.php' ? 'active' : '' ?>" href="contenu.php">
             <i class="bi bi-collection-play me-1"></i>Contenus</a>
         </li>
+        <?php if ($peutPublier): ?>
+          <li class="nav-item">
+            <a class="nav-link <?= $page === 'publier.php' ? 'active' : '' ?>" href="publier.php">
+              <i class="bi bi-cloud-upload me-1"></i>Publier</a>
+          </li>
+        <?php endif; ?>
         <?php if ($user): ?>
           <li class="nav-item">
             <a class="nav-link <?= $page === 'bibliotheque.php' ? 'active' : '' ?>" href="bibliotheque.php">
